@@ -1,5 +1,5 @@
 ---
-title: "Data Science Exercise"
+title: "Business Inquiry to Research Solution"
 author: "Author: Jesus Cantu Jr"
 date: "4/14/23"
 output:
