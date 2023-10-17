@@ -1,0 +1,759 @@
+---
+title: "Data Science Exercise"
+author: "Author: Jesus Cantu Jr"
+date: "4/14/23"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+# Business Objective: 
+This exercise asks you to help a hypothetical agency partner discover and describe patterns in takeup of a benefit while exploring the possibility of a future randomized trial. Suppose our partners have two administrative datasets related to small businesses that were eligible to receive federal aid. One contains the email address of the business owner along with owner-reported details about their business. The other contains information unique to the ZIP code in which a business is located. All owners were notified of their eligibility for aid but not all applied for funding. Our agency partners have two goals:
+
+  1. Identifying Application Rates: First, our partners would like a better understanding of the types of businesses from this sample that did and did not submit an application. Identify the two or three most salient ways that applicant and non-applicant businesses differ, paying particular attention to whether there are specific business types that apply at higher or lower rates than others. You may assume the businesses listed in the sample are a comprehensive list of all eligible businesses.
+  
+  2. Increasing Application Rates: Second, our partners would like to explore the possibility of a future randomized trial estimating the effect of mailers (e.g. informational brochures about the program sent to potential applicants) on application rates. They would like to be able to know whether the outreach program was effective at increasing application rates overall, and ideally whether it was effective for business owners who were least likely to apply in the initial round.
+
+The agency partner is relying on our expertise to recommend whether a randomized trial that can answer these questions is feasible. They have told us that mailing costs are not a concern, as they have already decided to conduct mail outreach in some form. Your role is to advise whether or not an RCT that answers their questions seems sufficiently well-powered, and if so, how it should be designed.
+
+# Data Description: 
+The data sets we received from our partners are named business_data.csv 
+and zip_data.csv. The first contains a number of variables 
+at the business-level:
+
+  - applied: a binary indicator for whether a small business 
+             owner applied for aid;
+  - FTE: number of full-time equivalent employees;
+  - MOB: indicator for whether the business is minority-owned;
+  - WOB: indicator for whether the business is woman-owned;
+  - FY19: reported revenue in the 2019 fiscal year;
+  - FY20: reported revenue in the 2020 fiscal year;
+  - email: the email address of the business owner;
+  - zip_id: the ZIP code of the business.
+
+
+The second contains info at the ZIP code level:
+
+ - zipCode: the ZIP codes in the county of interest;
+ - size: the population within the zip code;
+ - status: the urban/rural status of the zip code.
+
+```{r, message = FALSE}
+# Load the necessary packages
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Set working directory
+setwd("/Users/Jesse/Desktop/MacBookAir/OES")
+
+# Read in the data
+business_data <- read.csv("business_data.csv")
+zip_data <- read.csv("zip_data.csv")
+```
+
+# Data Wrangling: 
+```{r}
+# Explore business data set structure & missing values: 
+dim(business_data) # dimensions 
+
+summary(business_data) # Summary of the distribution of variables 
+
+# Count the number of missing values in the data set
+num_missing <- sum(is.na(business_data))
+
+# Print the result
+cat("Total number of missing values in business data set:", num_missing, "\n")
+
+# Identify rows with missing values
+missing_rows <- rowSums(is.na(business_data)) > 0
+
+# Print first 5 rows with missing values
+head(business_data[missing_rows,], n = 5)
+```
+Business data (i.e., 'business_data.csv') contains 8139 obs. and 8 columns;
+most columns contain missing values. There is a total of 3282 missing values
+in this data set. Depending on our analyses, we might have to delete them later.
+Notice that missing values are spread out throughout the data among the 
+different columns; there are no rows that are completely empty. 
+
+Also note that the variable associated with zip code (i.e, 'zip_id') is 
+currently being read as a character. This might have to be updated to match the
+other data set, if this variable is to be used for merging. 
+
+
+```{r}
+# Investigate if there are any duplicate entries 
+any(duplicated(business_data))
+
+# Sort the data frame by 'zip_id' to make them easier to spot
+sorted_data <- business_data[order(business_data[, 1]), ]
+
+# Identify duplicate rows across all columns in the data
+dups <- duplicated(sorted_data[, 1:8]) | duplicated(sorted_data[, 1:8],
+                                                    fromLast = TRUE)
+# Count the number of duplicate rows
+sum(dups)
+
+# Display duplicate rows grouped together, first 5 rows 
+head(sorted_data[dups, ], n = 5)
+
+# Remove duplicates
+# The unique() function is then used to remove the duplicates 
+# and keep only the first occurrence of each unique row
+business_data <- unique(business_data)
+
+# Check for duplicates again
+any(duplicated(business_data)) # we have removed duplicate entries
+
+```
+Business data contained 112 duplicate rows. We have removed duplicate entries 
+from this data set by keeping only the first occurrence of each unique row. 
+
+
+```{r}
+# Explore zip code data set structure & missing values: 
+dim(zip_data) # dimensions 
+
+summary(zip_data) # Summary of the distribution of variables 
+
+# Count the number of missing values in the data set
+num_missing <- sum(is.na(zip_data))
+
+# Print the result
+cat("Total number of missing values in zip code data set:", num_missing, "\n")
+
+# Drop unnecessary column from data by specifying what columns we want  
+zip_data = zip_data[ , c("zipCode","size", "status")]
+```
+Zip code data (i.e., 'zip_data.csv') contains 20 obs. and 4 columns; 
+the data set does not contain any missing values. 
+However, it seems there is an extra column 'X', not mentioned in the 
+data description that have might be added earlier as an index. 
+We will remove this column as it not needed for our analysis. 
+
+```{r}
+# Merged data sets based on zip code attribute 
+
+# Rename 'zip_id' column in business data to match our other data set 
+names(business_data)[names(business_data) == "zip_id"] <- "zipCode"
+
+# We also want to change the attribute type from string to numeric   
+# However, the 'ZipCode' column in the business data currently 
+# contains values with the following format ZipCode-0000 (e.g., 665201-0000), 
+# which will turn to NA's when converted to integer 
+
+# We will split the column first by hyphen 
+# and select the first part of the substring
+business_data$zipCode <- sapply(strsplit(business_data$zipCode, "-"), "[", 1)
+# Then convert string to numeric values
+business_data$zipCode <- as.integer(business_data$zipCode) 
+
+# Merge the two data frames based on 'ZipCode' column
+merged_data <- merge(business_data, zip_data, by = "zipCode")
+
+# Print the result
+head(merged_data)
+dim(merged_data) # dimensions 
+
+# Created a copy of the merged data without NA's
+merged_data_clean <- na.omit(merged_data)
+
+# Print the result
+head(merged_data_clean)
+dim(merged_data_clean) # dimensions 
+
+# Saved copy of the merged data sets as CSV files 
+write.csv(merged_data, file = "business_zip_data.csv",
+          row.names = FALSE)
+write.csv(merged_data_clean, file = "business_zip_data_clean.csv",
+          row.names = FALSE)
+```
+For our analysis, we merged the business and zip data sets based on 
+the column that specifies zip code. Data wrangling was done to ensure
+the attributes matched in terms of column name and data type, so that merging
+could be done correctly. A copy of the merged data was created with and without 
+missing values. We saved these new data frames as CSV files 
+for future use. 
+
+
+# Data Analysis (Identifying Application Rates): 
+
+First, our partners would like a better understanding of the types of businesses 
+from this sample that did and did not submit an application.
+
+We will identify the two or three most salient ways that applicant 
+and non-applicant businesses differ, paying particular attention to whether
+there are specific business types that apply at higher 
+or lower rates than others.
+We will assume that the businesses listed in the sample are a comprehensive list 
+of all eligible businesses.
+
+
+# 1) Hypothesis testing: 
+
+If we have a categorical variable such as business 
+type or ownership, we can use hypothesis testing to determine whether 
+there is a significant difference in the application 
+rates between different groups. 
+
+For example, we can use a chi-squared test or Fisher's exact test to compare 
+the proportion of applicants and non-applicants in each business type or 
+ownership group. We can set the significance level to 0.05 or 0.01, 
+which indicates the probability of obtaining a test statistic 
+as extreme as the observed one by chance.
+
+```{r}
+# Load business and zip data from CSV file
+clean_data <- read.csv("business_zip_data_clean.csv")
+
+# Note, if one or both of the vectors being used to create the contingency 
+# table are not of the correct variable type, this can cause the error. 
+
+# If the two vectors being used to create the contingency table 
+# have different factor levels, this can also cause the error. 
+
+# Ensure that both vectors have the same factor levels
+clean_data <- within(clean_data, {
+  applied_factor <- factor(applied)
+  MOB_factor <- factor(MOB)
+  WOB_factor <- factor(WOB)
+  status_factor <- factor(status)
+})
+
+# Create a contingency table of applied and ownership type (minority-owned) 
+cont_table1 <- table(clean_data$applied, clean_data$MOB_factor)
+
+# Conduct a chi-squared test of independence
+test_result1 <- chisq.test(cont_table1)
+
+# Print the test result
+print("Results of hypothesis test: applied and ownership type (minority-owned): ")
+test_result1
+
+```
+
+The Pearson's Chi-squared test with Yates' continuity correction 
+was used to investigate the association between two categorical variables,
+applied and ownership type (minority-owned).
+
+The test statistic is X-squared = 11.82 with df = 1 and p-value = 0.0005859 
+(p<0.001), indicating a significant association between the two variables. The 
+results suggest that there is strong evidence to reject the null hypothesis 
+of no association in favor of the alternative hypothesis that there 
+is an association between the two categorical variables, applied 
+and ownership type (minority-owned)
+
+Further analysis, such as a post-hoc test or logistic regression, 
+may be necessary to determine the nature and strength of this association.
+
+
+```{r}
+# Create a contingency table of applied and ownership type (women-owned) 
+cont_table2 <- table(clean_data$applied, clean_data$WOB_factor)
+
+# Conduct a chi-squared test of independence
+test_result2 <- chisq.test(cont_table2)
+
+# Print the test result
+print("The contingency table is as follows: ")
+print(cont_table2)
+
+print("Results of hypothesis test: applied and ownership type (women-owned): ")
+test_result2
+
+```
+The contingency table shows the frequencies of the two levels of the 
+binary variable (0 and 1) across the two levels of ownership type. It can be 
+observed that the frequencies of the binary variable being 1 (women-owned) 
+are relatively lower in both ownership types (583 in 0 and 579 in 1). 
+On the other hand, the frequencies of the binary variable being 0 are 
+higher in both ownership types (1721 in 0 and 2448 in 1).
+
+
+
+
+The Pearson's Chi-squared test with Yates' continuity correction 
+was used to investigate the association between two categorical variables,
+applied and ownership type (women-owned).
+
+The test statistic was X-squared = 28.912 with df = 1 and p-value = 7.573e-08
+(p<0.001), indicating a significant association between the two variables. The 
+results suggest strong evidence to reject the null hypothesis of no association
+in favor of the alternative hypothesis that there is an association between 
+the two categorical variables, applied and ownership type (women-owned)
+
+Again further analysis, such as a post-hoc test or logistic regression,
+may be necessary to determine the nature and strength of this association.
+
+
+```{r}
+# Create a contingency table of applied and status (rural/urban) 
+cont_table3 <- table(clean_data$applied, clean_data$status_factor)
+
+# Conduct a chi-squared test of independence
+test_result3 <- chisq.test(cont_table3)
+
+# Print the test result
+print("The contingency table is as follows: ")
+print(cont_table3)
+
+print("Results of hypothesis test: applied and status (rural/urban): ")
+test_result3
+```
+The contingency table, labeled "cont_table3," provides the observed frequencies 
+for each combination of status (rural/urban) and the outcome variable.
+he contingency table, cont_table3, shows the frequencies of the two levels 
+of the binary variable (0 and 1) across the two levels of 
+the status variable (rural and urban).
+
+The test statistic, X-squared, is calculated to be 545.47 with 1 
+degree of freedom (df). The p-value associated with the test is reported to be 
+less than (p<0.001), indicating an extremely small p-value. This suggests strong
+evidence against the null hypothesis, supporting the presence of a 
+significant relationship between the variables, applied and status. 
+
+
+# 2) Logistic regression: 
+
+If we have multiple variables that may influence 
+application rates, we can use logistic regression to model the probability 
+of applying for aid as a function of these variables. We can include variables 
+such as ownership type and status as well as other predictors in the 
+logistic regression model, and then use the coefficients to identify 
+which variables have the strongest association with application rates. 
+Examples of predictor variable types that can be included 
+in logistic regression: continuous variables, categorical variables, binary
+variables, and interaction terms. We can use the likelihood ratio 
+test or Wald test to test the significance of each coefficient, 
+with a significance level of 0.05 or 0.01 for example.
+
+It's important to note that the type of predictor variables used in logistic 
+regression can affect the interpretation of the model coefficients 
+and the overall performance of the model. It's also important to check 
+for multicollinearity between the predictor variables, 
+as highly correlated variables can lead to unstable coefficients 
+and inflated standard errors.
+
+
+```{r}
+# Check for multicollinearity between variables 
+
+# Re-code the status variable into two different binary variables 
+# to 1 and 0 based on rural/urban
+clean_data$rural <- ifelse(clean_data$status == "rural", 1, 0)
+clean_data$urban <- ifelse(clean_data$status == "urban", 1, 0)
+
+# Load required packages
+library(corrplot)
+
+# Select variables of interest
+vars_of_interest <- c("applied", "FTE", "MOB", "WOB", "FY19",
+                      "FY20", "rural", "urban", "size")
+selected_data <- clean_data[vars_of_interest]
+
+# Calculate the correlation matrix
+corr_matrix <- cor(selected_data)
+corr_matrix 
+
+# Plot the correlation matrix
+corrplot(corr_matrix, method = "color")
+```
+
+The values in the matrix range from -1 to 1, with values closer to -1 
+indicating a strong negative correlation, values closer to 1 
+indicating a strong positive correlation, and values closer to 0 
+indicating little or no correlation.
+
+Looking at the matrix, we can see that there are a few moderate correlations 
+between some of the variables. For example, FTE and FY19 have a
+correlation of 0.88, which suggests that businesses with 
+more full-time equivalent employees tend to have higher revenues. 
+Similarly, applied and rural have a correlation of -0.32, which suggests 
+that businesses in rural areas may be more likely to apply for aid.
+
+Variables that could cause issues of multicollinearity 
+in logistic regression are: FTE and FY19 (correlation coefficient of 0.88), 
+FTE and FY20 (correlation coefficient of 0.86),
+FY19 and FY20 (correlation coefficient of 0.97), and 
+Rural and Urban (correlation coefficient of -1.00)
+                  
+Including some of these variables in a logistic regression model could 
+lead to multicollinearity issues.To avoid multicollinearity, 
+it may be necessary to choose one of these
+highly correlated variables to include in the logistic regression model,
+or to combine them into a single variable. Alternatively, 
+more advanced methods such as principal component analysis (PCA) or 
+ridge regression could be used to handle multicollinearity issues.
+
+
+```{r}
+library(stargazer)
+
+# Fit a logistic regression model with applied as the outcome 
+# changing predictors to handle multicollinearity issues
+
+# Fit logistic models
+model1 <- glm(applied ~ FTE + MOB + WOB, data = clean_data,
+              family = "binomial")
+model2 <- glm(applied ~ FY19 + MOB + WOB, data = clean_data,
+              family = "binomial")
+model3 <- glm(applied ~ FY20 + MOB + WOB, data = clean_data,
+              family = "binomial")
+
+# Print the results side by side
+stargazer(model1, model2, model3, type = "text", 
+          header = FALSE, 
+          title = "Logistic Regression Results",
+          column.labels = c("Model 1", "Model 2", "Model 3"),
+          dep.var.labels = c("Applied"),
+          align = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          model.numbers = FALSE)
+
+```
+
+Interpreting results of logistic regression models:
+
+- applied: a binary indicator for whether a small business 
+             owner applied for aid;
+  - FTE: number of full-time equivalent employees;
+  - MOB: indicator for whether the business is minority-owned;
+  - WOB: indicator for whether the business is woman-owned;
+  - FY19: reported revenue in the 2019 fiscal year;
+  - FY20: reported revenue in the 2020 fiscal year;
+  - size: the population within the zip code;
+  - urban: indicator of urban status of the zip code; 
+  - rural: indicator of rural status of the zip code. 
+  
+
+For Model 1, FTE is statistically significant with a positive coefficient 
+of 0.022 (p < 0.001), suggesting that a one-unit increase in FTE is 
+associated with an increase in the odds of being applied.
+
+For Model 2, FY19 is statistically significant with a positive coefficient
+of 0.00000 (p < 0.001), indicating that a one-unit increase in FY19 is 
+associated with an increase in the odds of being applied.
+
+For Model 3, FY20 is statistically significant with a positive coefficient 
+of 0.00000 (p < 0.001), suggesting that a one-unit increase in FY20 is 
+associated with an increase in the odds of being applied.
+
+In all models (1-3), MOB is statistically significant with a positive coefficient, 
+suggesting that a one-unit increase in MOB is associated with an increase in 
+the odds of being applied. WOB is statistically significant in Models 1 and 
+2 with a negative coefficient, indicating that a one-unit increase in 
+WOB is associated with a decrease in the odds of being applied
+
+To compare the performance of these models, you can use 
+the Akaike Information Criterion (AIC) or the Bayesian Information 
+Criterion (BIC). Both of these metrics balance the goodness of fit with the 
+complexity of the model.
+
+In general, lower values of AIC or BIC indicate a better model fit. Based on the
+AIC scores reported in the added lines, Model 1 performed better than the 
+other two models, as it has the lowest AIC value (6,708.54). 
+This suggests that Model 1 has the best balance of goodness-of-fit and 
+complexity among the three models. We will add more parameter values to this
+model to check if we can continue to improve model fit. 
+
+
+```{r}
+# Fit logistic models
+model1 <- glm(applied ~ FTE + MOB + WOB, data = clean_data,
+              family = "binomial")
+model4 <- glm(applied ~ FTE + MOB + WOB + rural, data = clean_data,
+              family = "binomial")
+model5 <- glm(applied ~ FTE + MOB + WOB + urban, data = clean_data,
+              family = "binomial")
+model6 <- glm(applied ~ FTE + MOB + WOB + size, data = clean_data,
+              family = "binomial")
+
+
+# Print the results side by side
+stargazer(model1, model4, model5, model6, type = "text", 
+          header = FALSE, 
+          title = "Logistic Regression Results",
+          column.labels = c("Model 1", "Model 4", "Model 5", "Model 6"),
+          dep.var.labels = c("Applied"),
+          align = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          model.numbers = FALSE)
+
+```
+
+Model 1: FTE and MOB were significant predictors of applied. 
+For every one unit increase in FTE, the odds of applying increased 
+by a factor of 1.02, holding all other variables constant. 
+For every one unit increase in MOB, the odds of applying increased 
+by a factor of 1.17, holding all other variables constant.
+
+Model 4: In addition to FTE and MOB, the variable rural was included 
+in the model and was statistically significant. Rural schools 
+were associated with a decrease in the odds of applying by a factor of 9.10,
+holding all other variables constant.
+
+Model 5: In addition to FTE and MOB, the variable urban was included
+in the model and was statistically significant. Urban schools were 
+associated with an increase in the odds of applying by a factor of 9.10,
+holding all other variables constant.
+
+Model 6: In addition to FTE, MOB, and the variable size was 
+included in the model and was statistically significant. For every one
+unit increase in size, the odds of applying increased by a factor of 1.00. 
+
+Based on the AIC scores reported in the added lines, Model 4 & 5, 
+which included information about the urban/rural status associated with 
+a specific zip code,performed better than the other two models, as they have 
+the lowest AIC values (6,194.45). 
+
+Based on the logistic regression results, the most salient variables 
+that differentiate applicant and non-applicant businesses are MOB, WOB, 
+rural and urban status, and size. Specifically, businesses with higher MOB 
+and WOB values are more likely to submit an application. Additionally, 
+urban businesses are more likely to apply than rural businesses. Lastly,
+businesses with larger size are also more likely to apply for the program. 
+It is important to note that the direction of the relationship 
+(positive or negative) is not specified for rural/urban and 
+size variables in the given results.
+
+
+# 3) Decision Trees:
+
+Decision trees can provide additional insights into the factors that 
+differentiate between businesses that applied and those that did not apply. 
+Decision trees can identify the most important variables for predicting 
+the outcome variable and show how they interact with each other.
+Additionally, decision trees can handle non-linear relationships between 
+the predictor variables and the outcome variable. 
+
+```{r}
+# Load required packages
+library(rpart)
+library(rpart.plot)
+library(caret)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Split the data into training and testing sets
+train_index <- createDataPartition(clean_data$applied_factor, p = 0.7,
+                                   list = FALSE)
+train_data <- clean_data[train_index, ]
+test_data <- clean_data[-train_index, ]
+
+
+# Note that the outcome variable applied needs to be converted to a factor
+# before running the model. Also, the method = "class" argument specifies 
+# that we are running a classification tree, since the outcome variable 
+# is categorical.
+
+
+# Build decision tree models
+tree_model1 <- rpart(applied_factor ~ FTE + MOB + WOB,
+                    data = train_data, method = "class")
+
+tree_model2 <- rpart(applied_factor ~ FTE + MOB + WOB + rural + urban + size,
+                    data = train_data, method = "class")
+
+
+# Plot decision trees
+prp(tree_model1, extra = 1, under = TRUE, cex = 0.8, 
+    branch.lty = 3, box.col = "lightblue", shadow.col = "gray", 
+    cex.main = 1.5, cex.sub = 1.2, 
+    main = "Decision Tree for Application Rates",
+    sub = "Based on FTE, MOB, and WOB")
+
+prp(tree_model2, extra = 1, under = TRUE, cex = 0.8, 
+    branch.lty = 3, box.col = "lightblue", shadow.col = "gray", 
+    cex.main = 1.5, cex.sub = 1.2, 
+    main = "Decision Tree for Application Rates",
+    sub = "Based on FTE, MOB, WOB, rural, urban, and size")
+
+# Predict on test data
+test_pred1 <- predict(tree_model1, newdata = test_data, type = "class")
+test_pred2 <- predict(tree_model2, newdata = test_data, type = "class")
+```
+
+Interpreting the results of a decision tree involves several steps:
+
+  1. The first step is to look at the tree structure itself, which shows 
+     the hierarchy of splits and the variable and cut-point used at each split. 
+     This can give you an idea of which variables are most important 
+     in predicting the outcome.
+
+  2. Next, you can look at the variable importance measures, 
+     which show how much each variable contributed to the model's accuracy.
+
+  3. You can also examine the terminal nodes (i.e., the leaves of the tree) 
+     and the predicted class probabilities associated with each node. 
+     This can help you identify which combinations of predictor variables 
+     are associated with different levels of the outcome variable.
+
+  4. Finally, you can use the confusion matrix to evaluate the model's 
+     overall performance, including its accuracy, sensitivity, specificity, 
+     and other metrics. This can help you determine how well the model 
+     is predicting the outcome of interest.
+
+
+```{r}
+# Print confusion matrix
+print("Confusion Matrix for Tree Model 1:")
+confusionMatrix(test_pred1, test_data$applied_factor)
+```
+
+This confusion matrix shows the results of the decision tree model 
+applied to the test data. The rows represent the predicted values 
+and the columns represent the actual values. In this case, there are 
+two classes: 0 and 1. The model correctly predicted 174 instances of class 
+0 and 855 instances of class 1. However, it incorrectly predicted 53 instances 
+of class 1 as class 0 and 517 instances of class 0 as class 1.
+
+The accuracy of the model is 0.6435, meaning it correctly predicted 64.35% of 
+the test data. The kappa value is 0.2103, which indicates a fair agreement 
+between the predicted and actual values. The sensitivity is 0.2518, 
+meaning that the model correctly identified 25.18% of the true positives. 
+The specificity is 0.9416, indicating that the model correctly identified 
+94.16% of the true negatives.
+
+Overall, these results suggest that the decision tree model has some
+predictive power, but there is room for improvement.
+
+```{r}
+# Print confusion matrix
+print("Confusion Matrix for Tree Model 2:")
+confusionMatrix(test_pred2, test_data$applied_factor)
+```
+The confusion matrix shows the predicted and actual class distribution, 
+where class 0 and 1 are the reference and prediction labels, respectively. 
+The model has classified 300 instances as class 0 correctly, 
+and 834 instances as class 1 correctly, but it has also misclassified 
+74 instances of class 1 as class 0 and 391 instances of class 0 as class 1.
+
+The accuracy of the model is 0.7092, which is higher than the no information
+rate of 0.5679, indicating that the model is better than randomly guessing.
+The kappa value is 0.3731, indicating that the agreement between the predicted
+and actual classes is fair. The sensitivity of the model is 0.4342, 
+which means that the model can correctly identify only 43.42% of the 
+instances belonging to class 1. The specificity of the model is 0.9185, 
+indicating that the model can correctly identify 91.85% 
+of the instances belonging to class 0.
+
+The positive predictive value of the model is 0.8021, indicating that when 
+the model predicts an instance as class 1, it is correct 80.21% of the time.
+The negative predictive value is 0.6808, which indicates that when the model
+predicts an instance as class 0, it is correct 68.08% of the time. 
+The prevalence of class 1 in the data set is 0.4321, which means that 43.21%
+of the instances belong to class 1. Finally, the balanced accuracy of the model
+is 0.6763, which is the average of sensitivity and specificity, 
+indicating the overall performance of the model.
+
+
+# Data Analysis (Increasing Application Rates): 
+
+Second, our partners would like to explore the possibility of a future randomized 
+trial estimating the effect of mailers (e.g. informational brochures about
+the program sent to potential applicants) on application rates. They would like
+to be able to know whether the outreach program was effective at increasing
+application rates overall, and ideally whether it was effective 
+for business owners who were least likely to apply in the initial round.
+
+The agency partner is relying on our expertise to recommend whether a 
+randomized trial that can answer these questions is feasible. They have told us 
+that mailing costs are not a concern, as they have already decided to 
+conduct mail outreach in some form. Your role is to advise whether 
+or not an RCT that answers their questions seems sufficiently 
+well-powered, and if so, how it should be designed.
+
+To advise on whether or not an RCT that answers the partner's questions 
+seems sufficiently well-powered, we  would need to consider a few factors, 
+such as the effect size of interest, the sample size available for the trial, 
+and the statistical power required to detect the effect size.
+
+One way to determine the required sample size for a trial is to 
+conduct a power analysis. This involves estimating the effect size that 
+the trial aims to detect, choosing a statistical power level 
+(such as 80% or 90%), and calculating the sample size required to achieve 
+this power level. Once we have determined the required sample size, 
+we can assess whether it is feasible given the resources available 
+for the trial, including the mailing costs, staff time, and 
+other logistical considerations.
+
+In terms of trial design, a randomized controlled trial would be appropriate 
+to answer the partner's questions about the effectiveness of 
+mailers, specially if we can utilize the already collected email addresses to 
+send electronic information (e.g. informational brochures, etc.), 
+in increasing application rates. The trial could randomly assign potential 
+applicants to receive either a mailer or no mailer, and then 
+compare the future application rates between the two groups. 
+To assess whether the mailer was effective for business owners who were least 
+likely to apply in the initial round, the trial could also stratify 
+the randomization by some measure of the likelihood of applying, such as past 
+business revenue or ownership type. This would allow for a subgroup analysis 
+to determine whether the mailer was more effective for this group 
+of business owners.
+
+# Sample Power Analysis: 
+
+```{r}
+# Load power analysis library
+library(pwr)
+
+# Set effect sizes and alphas to test
+effect_sizes <- seq(0.2, 0.8, 0.1) # the effect sizes to detect
+alphas <- seq(0.01, 0.1, 0.01) # significance level
+powers <- seq(0.8, 0.99, 0.01) # desired statistical power
+
+# Effect size is a measure of the strength or magnitude of the relationship 
+# between two variables or the difference between two groups. 
+
+# Because a larger effect size is easier to detect with a smaller sample size. 
+# The power analysis is sensitive to the effect size because the effect 
+# size determines the magnitude of the difference between the two groups, 
+# and thus the magnitude of the signal in the data. 
+# A larger effect size leads to a stronger signal and 
+# requires a smaller sample size to achieve a given level of power.
+
+
+# Loop through effect sizes, alphas, and powers, and calculate sample size required
+results <- data.frame()
+for (effect_size in effect_sizes) {
+  for (alpha in alphas) {
+    for (power in powers) {
+      n <- pwr.t.test(d = effect_size, sig.level = alpha, power = power)$n
+      result <- data.frame(effect_size = effect_size, alpha = alpha, power = power, sample_size = round(n))
+      results <- rbind(results, result)
+    }
+  }
+}
+
+# Find the minimum and maximum sample size
+min_sample <- min(results$sample_size)
+max_sample <- max(results$sample_size)
+
+# Print the results
+cat(paste0("Minimum sample size: ", min_sample, "\n"))
+cat(paste0("Maximum sample size: ", max_sample, "\n\n"))
+
+cat("Parameters for minimum sample size:\n")
+min_row <- results[results$sample_size == min_sample, ]
+print(min_row[, c("effect_size", "alpha", "power", "sample_size")])
+
+cat("\nParameters for maximum sample size:\n")
+max_row <- results[results$sample_size == max_sample, ]
+print(max_row[, c("effect_size", "alpha", "power", "sample_size")])
+
+```
+
+The minimum and maximum sample sizes needed for the trial were determined 
+to be 20 and 1203, respectively. The minimum sample size required would 
+make it feasible to conduct the trial, while the maximum sample size could 
+be used to ensure greater statistical power. Considering the number of different
+business and email addresses (if our partners would like to employ 
+paperless mailing strategies) included in the data set; this number of
+participants could be easily achieved. 
+
+The parameters for the minimum sample size were an effect size of 0.8, 
+an alpha of 0.1, and a power of 0.8. The parameters for the maximum sample 
+size were an effect size of 0.2, an alpha of 0.01, and a power of 0.99.
