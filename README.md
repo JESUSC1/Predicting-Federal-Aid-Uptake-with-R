@@ -32,20 +32,23 @@ The analysis utilizes the following R libraries and packages:
 
 ## Analysis
 The main objective of the analysis is to discover and describe patterns in the uptake of a benefit. Analysis steps include:
-- Data Wrangling
-- Hypothesis testing
-- Logistic regression
-- Decision Trees
-- Increasing Application Rates
-- Sample Power Analysis
+- **Data Wrangling**: Initial exploration and cleaning of datasets, including handling missing values, renaming columns, and merging datasets based on zip codes.
+- **Identifying Application Rates**: Focus on understanding the types of businesses that applied and those that didn't.
+- **Hypothesis Testing**: Categorical variables were analyzed to identify significant differences in application rates. Techniques like `chi-squared test` and `Fisher’s exact test` were employed.
+- **Logistic Regression**: Regression models were built to predict application behavior based on variables like `Full-Time Equivalent (FTE)`, `Minority-Owned Business (MOB)`, and `Women-Owned Business (WOB)`. The influence of `rural/urban` status and business size was also explored.
+- **Decision Trees**: Decision tree models were built to gain insights into factors affecting applications. Trees were visualized for interpretation.
+- **Increasing Application Rates**: Strategies to increase application rates were explored, including the feasibility of sending mailers.
+- **Sample Power Analysis**: Power analysis was conducted to determine the required sample size for potential randomized trials.
 
-## Key Achievements
-1. **Statistical Rigor**: Successfully employed hypothesis testing techniques like chi-squared and Fisher's exact test to discern application rate differences among business groups.
-2. **Modeling Proficiency**: Utilized logistic regression to model the probability of application based on several predictor variables, offering a comprehensive understanding of the influencing factors.
-3. **Attention to Detail**: Addressed potential pitfalls in logistic regression modeling, such as multicollinearity, ensuring robustness in the findings.
+## Achievements & Outcomes
+- **Statistical Insights**: Hypothesis testing, especially using chi-squared tests and Fisher’s exact tests, discerned application rate differences among business groups. Significant differences in application rates were identified among various business types and ownership categories, especially `Minority-Owned Business (MOB)` and `Women-Owned Business (WOB)`.
+- **Predictive Modeling**: Logistic regression models highlighted key predictors such as `Full-Time Equivalent (FTE)`, `MOB` status, and `WOB` status. `Rural/urban` status and business size also emerged as influential factors in determining application behaviors.
+- **Decision Trees Insights**: Through decision trees, `FTE`, `MOB`, and `WOB` were identified as primary factors that differentiate between businesses that applied and those that didn't. Additionally, rural/urban status and business size played pivotal roles in application patterns.
+- **Strategic Approaches**: One of the strategies explored to increase application rates was the possibility of sending mailers to businesses, particularly targeting those identified as least likely to apply based on the analysis.
+- **Foundation for Future Trials**: Power analysis determined the required sample size for potential randomized trials, ranging from a minimum of 20 to a maximum of 1203, depending on the desired effect size, significance level, and power.
 
 ## Conclusion
-The combination of hypothesis testing and logistic regression has provided a multifaceted understanding of the application behaviors among businesses. The analysis has shed light on specific groups with distinct application tendencies, as well as the combined influence of various business attributes on the likelihood to apply.
+The comprehensive analysis provided a robust understanding of the dynamics influencing small businesses' decisions to apply for federal aid. Through various statistical methods, factors like the number of `FTE` employees, `MOB` status, `WOB` status, and business location emerged as pivotal. The exploration of mailer-based engagement strategies offers a potential approach to boost application rates. Additionally, power analysis lays a concrete foundation for assessing the feasibility of future randomized trials.
 
 ## Future Work
 -  **Model Enhancement**: Incorporate more advanced machine learning techniques to enhance predictive accuracy.
