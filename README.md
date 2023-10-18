@@ -48,9 +48,9 @@ The main objective of the analysis is to discover and describe patterns in the u
 The combination of hypothesis testing and logistic regression has provided a multifaceted understanding of the application behaviors among businesses. The analysis has shed light on specific groups with distinct application tendencies, as well as the combined influence of various business attributes on the likelihood to apply.
 
 ## Future Work
--  *Model Enhancement*: Incorporate more advanced machine learning techniques to enhance predictive accuracy.
--  *Feature Exploration*: Explore additional potential predictor variables and assess their significance in influencing application behaviors.
--  *Qualitative Insights*: Augment the quantitative findings with qualitative research to understand the underlying reasons behind the observed patterns.
+-  **Model Enhancement**: Incorporate more advanced machine learning techniques to enhance predictive accuracy.
+-  **Feature Exploration**: Explore additional potential predictor variables and assess their significance in influencing application behaviors.
+-  **Qualitative Insights**: Augment the quantitative findings with qualitative research to understand the underlying reasons behind the observed patterns.
 
 ## Author
 Jesus Cantu Jr.
