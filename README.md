@@ -55,6 +55,9 @@ The comprehensive analysis provided a robust understanding of the dynamics influ
 -  **Feature Exploration**: Explore additional potential predictor variables and assess their significance in influencing application behaviors.
 -  **Qualitative Insights**: Augment the quantitative findings with qualitative research to understand the underlying reasons behind the observed patterns.
 
+# Note
+To fully understand the conclusions drawn in this analysis, it is recommended to go through the entire R notebook, including the code and its outputs. You can view the HTML version of the notebook [here](http://htmlpreview.github.io/?https://raw.githubusercontent.com/JESUSC1/Business-Inquiry-to-Research-Solution/main/Business_Question_Data_Analytics.html).
+
 ## Author
 Jesus Cantu Jr.
 
