@@ -1,4 +1,4 @@
-# Business-Inquiry-to-Research-Solution
+# Transforming Business Questions into Data-Driven Insights with R
 <img src="BA-Life-Cycle.png" alt="GitHub Image" width="450">
 
 This data science exercise is focused on assisting a hypothetical agency partner in discovering and describing patterns related to the uptake of a benefit for small businesses eligible for federal aid. The overarching goal is to explore the potential for a future randomized trial. Two primary datasets serve as the foundation for this analysis. One comprises the email addresses of business owners with self-reported details about their operations, while the other offers unique insights based on the ZIP codes of these businesses. Although all business owners were informed of their eligibility, not all chose to apply. The analysis seeks to understand the types of businesses that applied and those that refrained, thereby offering actionable insights for the agency partners.
